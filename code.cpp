@@ -17,10 +17,9 @@ void setup() {
 void loop() {
   int potValue = analogRead(potPin);
 
-  // Потенциометр регулирует скорость:
-  // 0   = максимальная скорость вправо
-  // 1023 = остановка
-  int speed = map(potValue, 0, 1023, 180, 90);
+  // 0 = остановка
+  // 1023 = максимальная скорость вправо
+  int speed = map(potValue, 0, 1023, 90, 180);
 
   servo1.write(speed);
   servo2.write(speed);
