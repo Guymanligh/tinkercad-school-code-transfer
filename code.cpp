@@ -17,7 +17,7 @@ void setup() {
 void loop() {
   int potValue = analogRead(potPin);
 
-  // 0 = остановка
+  // 0 = стоп
   // 1023 = максимальная скорость вправо
   int speed = map(potValue, 0, 1023, 90, 180);
 
