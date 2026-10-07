@@ -1,40 +1,53 @@
-#include <Servo.h>
+#include <IRremote.h>
 
-Servo servo1;
-Servo servo2;
-Servo servo3;
-Servo servo4;
+int IR_Sensor = 0;
 
-const int potPin = A0;
+int mapCodeToButton(unsigned long code) {
+  if ((code & 0x0000FFFF) == 0xBF00) {
+    code >>= 16;
+    if (((code >> 8) ^ (code & 0x00FF)) == 0x00FF) {
+      return code & 0xFF;
+    }
+  }
+  return -1;
+}
 
-// Точка остановки сервопривода.
-// Обычно около 90, но у разных сервоприводов может отличаться.
-const int STOP = 90;
+int readInfrared() {
+  int result = -1;
+  if (IrReceiver.decode()) {
+    unsigned long code = IrReceiver.decodedIRData.decodedRawData;
+    result = mapCodeToButton(code);
+    IrReceiver.resume();
+  }
+  return result;
+}
 
 void setup() {
-  servo1.attach(2);
-  servo2.attach(3);
-  servo3.attach(4);
-  servo4.attach(5);
-
-  // Полная остановка при включении
-  servo1.write(STOP);
-  servo2.write(STOP);
-  servo3.write(STOP);
-  servo4.write(STOP);
+  IrReceiver.begin(7);
+  Serial.begin(9600);
+  pinMode(2, OUTPUT);
+  pinMode(3, OUTPUT);
 }
 
 void loop() {
-  int potValue = analogRead(potPin);
+  IR_Sensor = readInfrared();
+  
+  if (IR_Sensor != -1) {
+    Serial.println(IR_Sensor);
+  }
 
-  // 0 = STOP
-  // 1023 = максимальная скорость вправо
-  int speed = map(potValue, 0, 1023, STOP, 180);
-
-  servo1.write(speed);
-  servo2.write(speed);
-  servo3.write(speed);
-  servo4.write(speed);
+  if (IR_Sensor == 16) {
+    digitalWrite(2, HIGH);
+    digitalWrite(3, LOW);
+  }
+  if (IR_Sensor == 17) {
+    digitalWrite(2, LOW);
+    digitalWrite(3, HIGH);
+  }
+  if (IR_Sensor == 0) {
+    digitalWrite(2, LOW);
+    digitalWrite(3, LOW);
+  }
 
   delay(10);
 }
