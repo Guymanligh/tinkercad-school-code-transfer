@@ -1,28 +1,23 @@
 #include <Servo.h>
 
-const int pingPin = 7;    // Датчик PING)))
-const int servoPin = 9;   // Сервопривод
-const int redPin = 3;     // Красный (RGB)
-const int greenPin = 5;   // Зеленый (RGB)
-const int bluePin = 6;    // Синий (RGB)
-
-const int piezoPin = 12;  // Пьезоэлемент (зуммер)
-const int buttonPin = 2;  // Кнопка ручного открытия
+const int pingPin = 7;    // Датчик PING))) на пине 7
+const int servoPin = 9;   // Сервопривод на пине 9
+const int redPin = 3;     // Красный (RGB) на пине 3
+const int bluePin = 5;    // Синий (RGB) на пине 5
+const int greenPin = 6;   // Зеленый (RGB) на пине 6
+const int piezoPin = 12;  // Зуммер на пине 12 (если подключен)
 
 Servo gateServo;
-int currentAngle = 0;     // Текущий угол для плавного движения
 
 void setup() {
+  Serial.begin(9600);
   gateServo.attach(servoPin);
-  gateServo.write(0);
+  gateServo.write(0); // Исходное положение — закрыто
 
   pinMode(redPin, OUTPUT);
   pinMode(greenPin, OUTPUT);
   pinMode(bluePin, OUTPUT);
   pinMode(piezoPin, OUTPUT);
-  
-  // Включаем внутреннюю подтяжку для кнопки (резистор не нужен)
-  pinMode(buttonPin, INPUT_PULLUP);
 }
 
 long getDistanceCm() {
@@ -38,49 +33,38 @@ long getDistanceCm() {
   return duration / 29 / 2;
 }
 
-// Вспомогательная функция для установки цвета RGB
-void setColor(bool r, bool g, bool b) {
-  digitalWrite(redPin, r ? HIGH : LOW);
-  digitalWrite(greenPin, g ? HIGH : LOW);
-  digitalWrite(bluePin, b ? HIGH : LOW);
-}
-
-// Плавный поворот сервопривода
-void moveGateTo(int targetAngle) {
-  while (currentAngle != targetAngle) {
-    if (currentAngle < targetAngle) currentAngle += 5;
-    else currentAngle -= 5;
-    gateServo.write(currentAngle);
-    delay(15);
-  }
+void setColor(int r, int g, int b) {
+  digitalWrite(redPin, r);
+  digitalWrite(greenPin, g);
+  digitalWrite(bluePin, b);
 }
 
 void loop() {
   long distance = getDistanceCm();
-  bool buttonPressed = (digitalRead(buttonPin) == LOW); // Нажата ли кнопка
+  
+  // Выводим расстояние в монитор порта для проверки
+  Serial.print("Distance: ");
+  Serial.print(distance);
+  Serial.println(" cm");
 
-  if (distance < 50 || buttonPressed) {
-    // 1. Машина совсем близко (< 50 см) ИЛИ нажата кнопка охраны:
-    // Включаем ЗЕЛЕНЫЙ, открываем шлагбаум и подаем прерывистый звук
-    setColor(false, true, false);
-    moveGateTo(90);
-    tone(piezoPin, 1000, 100); // Короткий писк зуммера
-    delay(200);
+  if (distance < 50) {
+    // Ближе 50 см: ОТКРЫВАЕМ шлагбаум (90 градусов) + ЗЕЛЕНЫЙ свет
+    gateServo.write(90);
+    setColor(LOW, HIGH, LOW);
+    digitalWrite(piezoPin, HIGH); // Сигнал зуммера без конфликта таймеров
   } 
   else if (distance >= 50 && distance < 100) {
-    // 2. Машина приближается (от 50 до 100 см):
-    // Включаем ЖЕЛТЫЙ (Красный + Зеленый), шлагбаум готовится, но пока закрыт
-    setColor(true, true, false);
-    moveGateTo(0);
-    noTone(piezoPin);
-    delay(100);
+    // От 50 до 100 см: машина подъезжает -> ПРИОТКРЫВАЕМ (45 градусов) + ЖЕЛТЫЙ свет
+    gateServo.write(45);
+    setColor(HIGH, HIGH, LOW);
+    digitalWrite(piezoPin, LOW);
   } 
   else {
-    // 3. Машина далеко (> 100 см):
-    // Включаем КРАСНЫЙ, шлагбаум закрыт, тишина
-    setColor(true, false, false);
-    moveGateTo(0);
-    noTone(piezoPin);
-    delay(100);
+    // Дальше 100 см: ЗАКРЫВАЕМ шлагбаум (0 градусов) + КРАСНЫЙ свет
+    gateServo.write(0);
+    setColor(HIGH, LOW, LOW);
+    digitalWrite(piezoPin, LOW);
   }
+
+  delay(100);
 }
