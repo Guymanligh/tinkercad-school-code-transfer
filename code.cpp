@@ -1,55 +1,53 @@
-#include <Wire.h>
-#include <LiquidCrystal_I2C.h>
 #include <Servo.h>
 
-LiquidCrystal_I2C lcd(0x27, 16, 2);
-Servo myServo;
+const int pingPin = 7;  // Пин SIG датчика PING)))
+const int servoPin = 9; // Пин сервопривода
+const int redPin = 3;   // Красный канал RGB
+const int greenPin = 5; // Зеленый канал RGB
+const int bluePin = 6;  // Синий канал RGB
 
-const int solarPin = A0;
-const float resistorValue = 1000.0; // Сопротивление резистора в Омах
-const int servoPin = 9;             // Пин для оранжевого провода сервопривода
+Servo gateServo;
 
 void setup() {
-  Serial.begin(9600);
-  
-  lcd.init();
-  lcd.backlight();
-  lcd.clear();
-  
-  myServo.attach(servoPin);
-  // Для сервопривода постоянного вращения (continuous): 90 — это остановка
-  myServo.write(90); 
+  gateServo.attach(servoPin);
+  pinMode(redPin, OUTPUT);
+  pinMode(greenPin, OUTPUT);
+  pinMode(bluePin, OUTPUT);
+}
+
+long getDistanceCm() {
+  // Отправляем импульс
+  pinMode(pingPin, OUTPUT);
+  digitalWrite(pingPin, LOW);
+  delayMicroseconds(2);
+  digitalWrite(pingPin, HIGH);
+  delayMicroseconds(5);
+  digitalWrite(pingPin, LOW);
+
+  // Принимаем отраженный сигнал на том же пине
+  pinMode(pingPin, INPUT);
+  long duration = pulseIn(pingPin, HIGH);
+
+  // Переводим время в сантиметры
+  return duration / 29 / 2;
 }
 
 void loop() {
-  int sensorValue = analogRead(solarPin);
-  
-  // Расчеты энергии
-  float voltage = sensorValue * (5.0 / 1023.0);
-  float power_W = (voltage * voltage) / resistorValue;
-  float power_mW = power_W * 1000.0;
-  
-  // Обновление данных на экране
-  lcd.setCursor(0, 0);
-  lcd.print("Volt: ");
-  lcd.print(voltage);
-  lcd.print(" V   ");
-  
-  lcd.setCursor(0, 1);
-  lcd.print("Pwr:  ");
-  lcd.print(power_mW);
-  lcd.print(" mW  ");
+  long distance = getDistanceCm();
 
-  // Вращение сервопривода в зависимости от полученной энергии
-  if (voltage < 0.2) {
-    // Если света почти нет, останавливаем мотор
-    myServo.write(90); 
+  if (distance < 50) {
+    // Машина близко (меньше 50 см): открываем шлагбаум, включаем ЗЕЛЕНЫЙ
+    gateServo.write(90);
+    digitalWrite(redPin, LOW);
+    digitalWrite(greenPin, HIGH);
+    digitalWrite(bluePin, LOW);
   } else {
-    // Конвертируем уровень света в скорость. 
-    // 90 - стоп, 180 - максимальная скорость вперед
-    int speed = map(sensorValue, 0, 1023, 90, 180);
-    myServo.write(speed); 
+    // Путь свободен: закрываем шлагбаум, включаем КРАСНЫЙ
+    gateServo.write(0);
+    digitalWrite(redPin, HIGH);
+    digitalWrite(greenPin, LOW);
+    digitalWrite(bluePin, LOW);
   }
 
-  delay(500); 
+  delay(100);
 }
